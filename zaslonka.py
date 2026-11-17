@@ -65,6 +65,8 @@ loop_from_edge = 5.0    # mm - gap from the shutter edge to the loop
 # Clamp bar: goes inside the heater opening, the middle hole screw pulls it to the plate
 clamp_t = 3.0           # mm - bar thickness (length = plate width at the middle hole,
                         #      width = stiff_gap + both ribs, edge ribs = rib_in)
+nut_af = 10.0           # mm - M6 nut across flats (DIN 934)
+nut_h = 5.0             # mm - nut pocket depth = boss height above the bar
 
 # Material
 shrinkage = 0.0         # print shrinkage (e.g. 0.02): exported files are scaled up by 1/(1-shrinkage). Set right before printing
@@ -274,15 +276,20 @@ result = (
     .cut(end_trim)
 )
 
-# Clamp bar: flat strip with edge ribs along the long sides and a ring around the hole
+# Clamp bar: flat strip, edge ribs along the long sides on both faces.
+# Bottom face (towards the plate): ring around the hole. Top face: boss with a hex nut pocket.
 clamp_w = stiff_gap + 2 * rib_in_w
-clamp_box = cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_t + rib_in_h)
+clamp_h = rib_in_h + clamp_t + nut_h
+clamp_box = cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_h)
 clamp = (
-    cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_t)
-    .union(clamp_box.cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(clamp_t + rib_in_h)))
-    .union(cq.Workplane("XY").circle(head_d / 2 + rib_in_w).circle(head_d / 2)
-           .extrude(clamp_t + rib_in_h).intersect(clamp_box))
-    .cut(cq.Workplane("XY").circle(hole_d / 2).extrude(clamp_t + rib_in_h))
+    cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_t + 2 * rib_in_h)
+    .cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(rib_in_h))
+    .cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(rib_in_h).translate((0, 0, rib_in_h + clamp_t)))
+    .union(cq.Workplane("XY").circle(head_d / 2 + rib_in_w).circle(head_d / 2).extrude(rib_in_h).intersect(clamp_box))
+    .union(cq.Workplane("XY").circle(clamp_w / 2).extrude(nut_h).translate((0, 0, rib_in_h + clamp_t)))
+    .cut(cq.Workplane("XY").polygon(6, (nut_af + 2 * fit_clearance) / math.cos(math.pi / 6))
+         .extrude(nut_h).translate((0, 0, rib_in_h + clamp_t)))
+    .cut(cq.Workplane("XY").circle(hole_d / 2).extrude(clamp_h))
 )
 
 # ============================================================
