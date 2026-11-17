@@ -69,7 +69,7 @@ nut_af = 10.0           # mm - M6 nut across flats (DIN 934)
 nut_h = 5.0             # mm - nut pocket depth = boss height above the bar
 
 # Material
-shrinkage = 0.0         # print shrinkage (e.g. 0.02): exported files are scaled up by 1/(1-shrinkage). Set right before printing
+shrinkage = 0.02        # print shrinkage: print_*.stl are scaled up by 1/(1-shrinkage). Nominal files stay 1:1
 
 # Internal
 n_pts = 48              # points per tube section
@@ -295,22 +295,34 @@ clamp = (
 # ============================================================
 # EXPORT
 # ============================================================
-# STL: tessellate at nominal size, then scale the mesh (scaling the B-rep first
-# gave a non-watertight mesh). STEP is scaled as a solid.
+# Nominal size: <name>.stl + <name>.step. For printing: print_<name>.stl, the
+# nominal mesh scaled up for shrinkage (scaling the B-rep first gave a
+# non-watertight mesh).
+import numpy as np
 import trimesh
 
 scale = 1 / (1 - shrinkage)
 for part, name in ((result, "zaslonka"), (shutter, "zaslonka_shutter"),
                    (clamp, "zaslonka_clamp")):
     cq.exporters.export(part, f"{name}.stl", tolerance=0.01, angularTolerance=0.1)
+    cq.exporters.export(part, f"{name}.step")
     mesh = trimesh.load_mesh(f"{name}.stl")
     mesh.apply_scale(scale)
-    mesh.export(f"{name}.stl")
-    cq.exporters.export(cq.Workplane(obj=part.val().scale(scale)), f"{name}.step")
+    # A sliver triangle can turn collinear after float32 rounding and open the
+    # mesh: collapse its shortest edge (moves a vertex by < 0.01 mm)
+    mesh.vertices = mesh.vertices.astype(np.float32).astype(float)    # STL precision
+    for face in mesh.faces[~mesh.nondegenerate_faces()]:
+        pts = mesh.vertices[face]
+        k = min(range(3), key=lambda n: np.linalg.norm(pts[n] - pts[(n + 1) % 3]))
+        mesh.vertices[face[k]] = pts[(k + 1) % 3]
+    mesh.merge_vertices()
+    mesh.update_faces(mesh.nondegenerate_faces())
+    mesh.export(f"print_{name}.stl")
 
 from mating import check_mating
 # Closed position; rails must hold the shutter across (Y) and against lifting (Z)
 check_mating(result, shutter.translate((rail_x0 + fit_clearance, win_cy, z_top)),
              clearance=fit_clearance, axes=("y", "z"))
 bb = result.val().BoundingBox()
-print(f"Exported (scaled x{scale:.4f}): {bb.xlen * scale:.1f} x {bb.ylen * scale:.1f} x {bb.zlen * scale:.1f} mm")
+print(f"Exported: {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f} mm; "
+      f"print_* x{scale:.4f}: {bb.xlen * scale:.1f} x {bb.ylen * scale:.1f} x {bb.zlen * scale:.1f} mm")
