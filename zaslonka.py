@@ -60,6 +60,7 @@ grip_w, grip_h = 3.0, 4.0   # mm - pull ridge on the shutter
 loop_t = 3.0            # mm - loop (eye) thickness; stands along the travel, at the edge opposite the pull ridge
 loop_hole_d = 4.0       # mm - hole for a wire hook
 loop_wall = 3.0         # mm - material around the hole
+loop_from_edge = 5.0    # mm - gap from the shutter edge to the loop
 
 # Material
 shrinkage = 0.0         # print shrinkage (e.g. 0.02): exported files are scaled up by 1/(1-shrinkage). Set right before printing
@@ -242,10 +243,10 @@ shutter = (
     .union(cq.Workplane("XY").box(grip_w, shutter_w - 2 * shutter_t - 2 * rail_h, shutter_t + grip_h,
                                   centered=(False, True, False)).translate((shutter_len - grip_w, 0, 0)))
 )
-# Eye for a wire hook: fin along the travel, hole across. Sits flush with the edge
+# Eye for a wire hook: fin along the travel, hole across. Sits near the edge
 # opposite the pull ridge (mid-shutter it would break out of the thin plate)
 loop_r = loop_hole_d / 2 + loop_wall
-loop_x = loop_r
+loop_x = loop_from_edge + loop_r
 loop = (
     cq.Workplane("XZ").center(loop_x, shutter_t)
     .moveTo(-loop_r, -eps).lineTo(-loop_r, loop_r).threePointArc((0, 2 * loop_r), (loop_r, loop_r))
