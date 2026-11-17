@@ -28,6 +28,8 @@ rise_len = 0.0          # mm - straight oval part above the plate
 bend_angle = 45.0       # deg - tilt toward +X (far end of the plate)
 bend_r = 40.0           # mm - centreline bend radius (min ~36: half oval length)
 outlet_len = 20.0       # mm - straight round part for the hose
+bead_d = 60.5           # mm - bead at the very end of the outlet, keeps the hose clamp from sliding off
+bead_w = 2.0            # mm - bead length along the tube
 
 # Perimeter ribs
 rib_in_w, rib_in_h = 3.0, 2.0     # mm - tube side
@@ -177,6 +179,13 @@ def tube(shrink, extend):
 
 
 plate = outline().extrude(plate_t).translate((0, 0, z_plate))
+_ang = math.radians(bend_angle)
+_dir = cq.Vector(math.sin(_ang), 0, math.cos(_ang))
+_end = cq.Vector(oval_cx + bend_r * (1 - math.cos(_ang)), oval_cy,
+                 z_top + rise_len + bend_r * math.sin(_ang)) + _dir * outlet_len
+# bead overshoots the outlet end, then everything is trimmed flush at the end plane
+bead = cq.Workplane(obj=cq.Solid.makeCylinder(bead_d / 2, bead_w + 0.5, _end - _dir * bead_w, _dir))
+end_trim = cq.Workplane(obj=cq.Solid.makeCylinder(bead_d, 5, _end, _dir))
 # Shutter zone: 45 degree dovetail rails (print without supports), open at the
 # far end so the shutter slides out there. No tube-side rib in this zone.
 win_x0 = end_margin + oval_len + win_gap
@@ -250,11 +259,12 @@ result = (
     plate
     .union(rib(rib_in_w, rib_in_h, z_top).cut(open_end))
     .union(rib(rib_out_w, rib_out_h, 0))
-    .union(tube(0, 0))
+    .union(tube(0, 0)).union(bead)
     .union(rail(1)).union(rail(-1)).union(stop).union(stiff).union(rings)
     .cut(window)
     .cut(holes)
     .cut(tube(tube_wall, 1.0))
+    .cut(end_trim)
 )
 
 # ============================================================
