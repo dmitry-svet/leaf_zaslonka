@@ -62,6 +62,10 @@ loop_hole_d = 4.0       # mm - hole for a wire hook
 loop_wall = 3.0         # mm - material around the hole
 loop_from_edge = 5.0    # mm - gap from the shutter edge to the loop
 
+# Clamp bar: goes inside the heater opening, the middle hole screw pulls it to the plate
+clamp_t = 3.0           # mm - bar thickness (length = plate width at the middle hole,
+                        #      width = stiff_gap + both ribs, edge ribs = rib_in)
+
 # Material
 shrinkage = 0.0         # print shrinkage (e.g. 0.02): exported files are scaled up by 1/(1-shrinkage). Set right before printing
 
@@ -270,6 +274,17 @@ result = (
     .cut(end_trim)
 )
 
+# Clamp bar: flat strip with edge ribs along the long sides and a ring around the hole
+clamp_w = stiff_gap + 2 * rib_in_w
+clamp_box = cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_t + rib_in_h)
+clamp = (
+    cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_t)
+    .union(clamp_box.cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(clamp_t + rib_in_h)))
+    .union(cq.Workplane("XY").circle(head_d / 2 + rib_in_w).circle(head_d / 2)
+           .extrude(clamp_t + rib_in_h).intersect(clamp_box))
+    .cut(cq.Workplane("XY").circle(hole_d / 2).extrude(clamp_t + rib_in_h))
+)
+
 # ============================================================
 # EXPORT
 # ============================================================
@@ -278,7 +293,8 @@ result = (
 import trimesh
 
 scale = 1 / (1 - shrinkage)
-for part, name in ((result, "zaslonka"), (shutter, "zaslonka_shutter")):
+for part, name in ((result, "zaslonka"), (shutter, "zaslonka_shutter"),
+                   (clamp, "zaslonka_clamp")):
     cq.exporters.export(part, f"{name}.stl", tolerance=0.01, angularTolerance=0.1)
     mesh = trimesh.load_mesh(f"{name}.stl")
     mesh.apply_scale(scale)
