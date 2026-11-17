@@ -57,7 +57,7 @@ shutter_r = 10.0        # mm - shutter corner radius (plan view)
 rail_w = 9.0            # mm - rail width at the plate
 fit_clearance = 0.3     # mm - shutter to rails, per side
 grip_w, grip_h = 3.0, 4.0   # mm - pull ridge on the shutter
-loop_t = 3.0            # mm - loop (eye) thickness; stands along the travel, mid-shutter
+loop_t = 3.0            # mm - loop (eye) thickness; stands along the travel, against the pull ridge
 loop_hole_d = 4.0       # mm - hole for a wire hook
 loop_wall = 3.0         # mm - material around the hole
 
@@ -242,13 +242,15 @@ shutter = (
     .union(cq.Workplane("XY").box(grip_w, shutter_w - 2 * shutter_t - 2 * rail_h, shutter_t + grip_h,
                                   centered=(False, True, False)).translate((shutter_len - grip_w, 0, 0)))
 )
-# Eye for a wire hook: fin along the travel in the middle of the shutter, hole across
+# Eye for a wire hook: fin along the travel, hole across. Sits at the far edge,
+# fused to the pull ridge (mid-shutter it would break out of the thin plate)
 loop_r = loop_hole_d / 2 + loop_wall
+loop_x = shutter_len - grip_w - loop_r + 0.1
 loop = (
-    cq.Workplane("XZ").center(shutter_len / 2, shutter_t)
+    cq.Workplane("XZ").center(loop_x, shutter_t)
     .moveTo(-loop_r, -eps).lineTo(-loop_r, loop_r).threePointArc((0, 2 * loop_r), (loop_r, loop_r))
     .lineTo(loop_r, -eps).close().extrude(loop_t / 2, both=True)
-    .cut(cq.Workplane("XZ").center(shutter_len / 2, shutter_t + loop_r).circle(loop_hole_d / 2)
+    .cut(cq.Workplane("XZ").center(loop_x, shutter_t + loop_r).circle(loop_hole_d / 2)
          .extrude(loop_t, both=True))
 )
 shutter = shutter.intersect(
