@@ -51,6 +51,7 @@ win_w = 58.5            # mm - window along Y (one long side in line with the ov
 win_r = 10.0            # mm - window corner radius
 win_overlap = 10.0      # mm - shutter overlap around the window
 shutter_t = 3.0         # mm - shutter thickness
+shutter_r = 10.0        # mm - shutter corner radius (plan view)
 rail_w = 9.0            # mm - rail width at the plate
 fit_clearance = 0.3     # mm - shutter to rails, per side
 grip_w, grip_h = 3.0, 4.0   # mm - pull ridge on the shutter
@@ -241,7 +242,10 @@ loop = (
     .cut(cq.Workplane("XZ").center(shutter_len / 2, shutter_t + loop_r).circle(loop_hole_d / 2)
          .extrude(loop_t, both=True))
 )
-shutter = shutter.union(loop)
+shutter = shutter.intersect(
+    cq.Workplane("XY").box(shutter_len, shutter_w, shutter_t + grip_h + 1, centered=(False, True, False))
+    .edges("|Z").fillet(shutter_r)
+).union(loop)
 result = (
     plate
     .union(rib(rib_in_w, rib_in_h, z_top).cut(open_end))
