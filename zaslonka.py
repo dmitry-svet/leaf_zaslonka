@@ -46,7 +46,7 @@ fit_clearance = 0.3     # mm - shutter to rails, per side
 grip_w, grip_h = 3.0, 4.0   # mm - pull ridge on the shutter
 
 # Material
-shrinkage = 0.02        # 2% print shrinkage: exported files are scaled up by 1/(1-shrinkage)
+shrinkage = 0.0         # print shrinkage (e.g. 0.02): exported files are scaled up by 1/(1-shrinkage). Set right before printing
 
 # Internal
 n_pts = 48              # points per tube section
