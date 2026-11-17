@@ -41,6 +41,7 @@ corner_hole_inset = 10.0    # mm - two holes in the plate corners at the oval en
 ear_r = 7.0             # mm - ear radius (two ears beside the shutter, at the far end)
 ear_out = 6.0           # mm - ear hole centre outside the long edge
 ear_from_end = 8.0      # mm - ear hole centre from the far end
+head_d = 14.0           # mm - free diameter for the screw head inside the tube-side ring
 ear_blend_r = 3.0       # mm - concave blend between ear and plate
 
 # Window + sliding shutter (tube side). Estimated from the photo: CHECK.
@@ -210,6 +211,16 @@ hole_pts = ear_pts + [(corner_hole_inset, corner_hole_inset), (corner_hole_inset
                       (stiff_cx, mid_w / 2)]
 holes = cq.Workplane("XY").pushPoints(hole_pts).circle(hole_d / 2).extrude(z_top + rail_h + 2).translate((0, 0, -1))
 
+# Rings around the in-plate holes (corners at the oval end + the middle one):
+# body side like the ears (plate rests on them when screwed down), tube side around the screw head
+ring_pts = hole_pts[len(ear_pts):]
+rings = (
+    cq.Workplane("XY").pushPoints(ring_pts).circle(ear_r).circle(ear_r - rib_out_w).extrude(rib_out_h)
+    .intersect(outline().extrude(rib_out_h))
+    .union(cq.Workplane("XY").pushPoints(ring_pts).circle(head_d / 2 + rib_in_w).circle(head_d / 2).extrude(rib_in_h)
+           .intersect(outline().extrude(rib_in_h)).translate((0, 0, z_top)))
+)
+
 half = shutter_w / 2
 shutter = (
     cq.Workplane("YZ")
@@ -223,7 +234,7 @@ result = (
     .union(rib(rib_in_w, rib_in_h, z_top).cut(open_end))
     .union(rib(rib_out_w, rib_out_h, 0))
     .union(tube(0, 0))
-    .union(rail(1)).union(rail(-1)).union(stop).union(stiff)
+    .union(rail(1)).union(rail(-1)).union(stop).union(stiff).union(rings)
     .cut(window)
     .cut(holes)
     .cut(tube(tube_wall, 1.0))
