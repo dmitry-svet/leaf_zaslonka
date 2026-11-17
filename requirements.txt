@@ -1,0 +1,3 @@
+# Python 3.10-3.12 (CadQuery has no wheels for 3.13+)
+cadquery>=2.6.1,<3
+trimesh>=4.0,<5
