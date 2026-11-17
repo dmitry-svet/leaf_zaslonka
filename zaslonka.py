@@ -23,7 +23,7 @@ oval_straight = 28.6    # mm - straight part between the two R20 arcs
 
 # Tube
 tube_od = 59.5          # mm - round outlet outer diameter (hose slides on)
-tube_wall = 2.0         # mm
+tube_wall = 3.0         # mm
 rise_len = 0.0          # mm - straight oval part above the plate
 bend_angle = 45.0       # deg - tilt toward +X (far end of the plate)
 bend_r = 40.0           # mm - centreline bend radius (min ~36: half oval length)
