@@ -42,6 +42,7 @@ hole_d = 6.0            # mm
 corner_hole_inset = 10.0    # mm - two holes in the plate corners at the oval end, from both edges
 ear_r = 7.0             # mm - ear half-size: square ears beside the shutter, flush with the far end
 ear_out = 6.0           # mm - ear hole centre outside the long edge
+ear_extra = 6.0         # mm - extra ear length towards the plate centre (makes the ears rectangular)
 ear_from_end = 8.0      # mm - ear hole centre from the far end
 head_d = 14.0           # mm - free diameter for the screw head inside the tube-side ring
 ear_blend_r = 3.0       # mm - concave blend between ear and plate
@@ -114,8 +115,8 @@ def base_outline():
 
 
 ear_pts = [(plate_len - ear_from_end, -ear_out), (plate_len - ear_from_end, plate_w + widen + ear_out)]
-# Square ears: from ear_r before the hole to the plate end, so they add nothing to the length
-_ear_x0 = plate_len - ear_from_end - ear_r
+# Rectangular ears: from ear_r + ear_extra before the hole to the plate end, so they add nothing to the length
+_ear_x0 = plate_len - ear_from_end - ear_r - ear_extra
 _ears = (cq.Workplane("XY").moveTo(_ear_x0, -ear_out - ear_r)
          .rect(plate_len - _ear_x0, plate_w + widen + 2 * (ear_out + ear_r), centered=False).extrude(1)
          .cut(cq.Workplane("XY").moveTo(_ear_x0 - 1, corner_r_far)
