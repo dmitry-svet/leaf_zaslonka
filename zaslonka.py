@@ -301,6 +301,17 @@ clamp = (
 # ============================================================
 # EXPORT
 # ============================================================
+# Frame ears: bridge along the plate edge closes each ear, the cell is filled
+# around a round hole (same bore as the body-side rings)
+ear_fill = (
+    cq.Workplane("XY").moveTo(_ear_x0, -ear_out - ear_r)
+    .rect(plate_len - _ear_x0, plate_w + widen + 2 * (ear_out + ear_r), centered=False).extrude(rib_out_h)
+    .cut(cq.Workplane("XY").moveTo(_ear_x0 - 1, rib_out_w)
+         .rect(plate_len - _ear_x0 + 2, plate_w + widen - 2 * rib_out_w, centered=False).extrude(rib_out_h))
+    .cut(cq.Workplane("XY").pushPoints(ear_pts).circle(ear_r - rib_out_w).extrude(rib_out_h))
+)
+result = result.union(ear_fill)
+
 # The body-side rib and rings go into a separate frame, so the plate prints flat
 # on the bed without supports. The mounting screws clamp the frame under the plate.
 _slab = cq.Workplane("XY").rect(4 * plate_len, 4 * plate_len).extrude(rib_out_h)
