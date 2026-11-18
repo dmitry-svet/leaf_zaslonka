@@ -45,6 +45,7 @@ ear_out = 6.0           # mm - ear hole centre outside the long edge
 ear_extra = 6.0         # mm - extra ear length towards the plate centre (makes the ears rectangular)
 ear_from_end = 8.0      # mm - ear hole centre from the far end
 head_d = 14.0           # mm - free diameter for the screw head inside the tube-side ring
+ear_corner_r = 2.0      # mm - outer (convex) corner radius of the ears
 ear_blend_r = 3.0       # mm - concave blend between ear and plate
 
 # Window + sliding shutter (tube side). Estimated from the photo: CHECK.
@@ -122,9 +123,11 @@ _ears = (cq.Workplane("XY").moveTo(_ear_x0, -ear_out - ear_r)
          .cut(cq.Workplane("XY").moveTo(_ear_x0 - 1, corner_r_far)
               .rect(plate_len - _ear_x0 + 2, plate_w + widen - 2 * corner_r_far, centered=False).extrude(1)))
 _body = base_outline().extrude(1).union(_ears)
-# offset out then in: rounds the concave ear-to-plate junctions, keeps the rest
+# offset out then in: rounds the concave ear-to-plate junctions, keeps the rest;
+# then in and out: rounds the convex ear corners
 outline_wire = (cq.Workplane("XY").add(_body.faces("<Z").wires().vals()[0]).toPending()
-                .offset2D(ear_blend_r).offset2D(-ear_blend_r).val())
+                .offset2D(ear_blend_r).offset2D(-ear_blend_r)
+                .offset2D(-ear_corner_r).offset2D(ear_corner_r).val())
 
 
 def outline():
@@ -310,6 +313,7 @@ ear_fill = (
     .cut(cq.Workplane("XY").moveTo(_ear_x0 - 1, rib_out_w)
          .rect(plate_len - _ear_x0 + 2, plate_w + widen - 2 * rib_out_w, centered=False).extrude(rib_out_h))
     .cut(cq.Workplane("XY").pushPoints(ear_pts).circle(ear_r - rib_out_w).extrude(rib_out_h))
+    .intersect(outline().extrude(rib_out_h))
 )
 result = result.union(ear_fill)
 
