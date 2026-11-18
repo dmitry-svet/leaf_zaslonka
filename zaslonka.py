@@ -1,7 +1,7 @@
 """Plate with an oval-to-round 45 degree duct for a parking heater hose.
 
-Print orientation: plate flat, tube pointing up. The outside rib (bottom)
-lifts the plate off the bed by rib_out_h, so that side needs supports.
+Print orientation: plate flat on the bed, tube pointing up. The body-side rib
+is a separate part (zaslonka_frame), so the plate needs no supports under it.
 """
 import math
 
@@ -40,7 +40,7 @@ stiff_gap = 14.0        # mm - gap between the two cross ribs (tube side, betwee
 # Mounting holes
 hole_d = 6.0            # mm
 corner_hole_inset = 10.0    # mm - two holes in the plate corners at the oval end, from both edges
-ear_r = 7.0             # mm - ear radius (two ears beside the shutter, at the far end)
+ear_r = 7.0             # mm - ear half-size: square ears beside the shutter, flush with the far end
 ear_out = 6.0           # mm - ear hole centre outside the long edge
 ear_from_end = 8.0      # mm - ear hole centre from the far end
 head_d = 14.0           # mm - free diameter for the screw head inside the tube-side ring
@@ -114,7 +114,13 @@ def base_outline():
 
 
 ear_pts = [(plate_len - ear_from_end, -ear_out), (plate_len - ear_from_end, plate_w + widen + ear_out)]
-_body = base_outline().extrude(1).union(cq.Workplane("XY").pushPoints(ear_pts).circle(ear_r).extrude(1))
+# Square ears: from ear_r before the hole to the plate end, so they add nothing to the length
+_ear_x0 = plate_len - ear_from_end - ear_r
+_ears = (cq.Workplane("XY").moveTo(_ear_x0, -ear_out - ear_r)
+         .rect(plate_len - _ear_x0, plate_w + widen + 2 * (ear_out + ear_r), centered=False).extrude(1)
+         .cut(cq.Workplane("XY").moveTo(_ear_x0 - 1, corner_r_far)
+              .rect(plate_len - _ear_x0 + 2, plate_w + widen - 2 * corner_r_far, centered=False).extrude(1)))
+_body = base_outline().extrude(1).union(_ears)
 # offset out then in: rounds the concave ear-to-plate junctions, keeps the rest
 outline_wire = (cq.Workplane("XY").add(_body.faces("<Z").wires().vals()[0]).toPending()
                 .offset2D(ear_blend_r).offset2D(-ear_blend_r).val())
@@ -295,6 +301,12 @@ clamp = (
 # ============================================================
 # EXPORT
 # ============================================================
+# The body-side rib and rings go into a separate frame, so the plate prints flat
+# on the bed without supports. The mounting screws clamp the frame under the plate.
+_slab = cq.Workplane("XY").rect(4 * plate_len, 4 * plate_len).extrude(rib_out_h)
+frame = result.intersect(_slab)
+body = result.cut(_slab).translate((0, 0, -rib_out_h))
+
 # Nominal size: <name>.stl + <name>.step. For printing: print_<name>.stl, the
 # nominal mesh scaled up for shrinkage (scaling the B-rep first gave a
 # non-watertight mesh).
@@ -302,7 +314,7 @@ import numpy as np
 import trimesh
 
 scale = 1 / (1 - shrinkage)
-for part, name in ((result, "zaslonka"), (shutter, "zaslonka_shutter"),
+for part, name in ((body, "zaslonka"), (frame, "zaslonka_frame"), (shutter, "zaslonka_shutter"),
                    (clamp, "zaslonka_clamp")):
     cq.exporters.export(part, f"{name}.stl", tolerance=0.01, angularTolerance=0.1)
     cq.exporters.export(part, f"{name}.step")
@@ -323,6 +335,6 @@ from mating import check_mating
 # Closed position; rails must hold the shutter across (Y) and against lifting (Z)
 check_mating(result, shutter.translate((rail_x0 + fit_clearance, win_cy, z_top)),
              clearance=fit_clearance, axes=("y", "z"))
-bb = result.val().BoundingBox()
+bb = body.val().BoundingBox()
 print(f"Exported: {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f} mm; "
       f"print_* x{scale:.4f}: {bb.xlen * scale:.1f} x {bb.ylen * scale:.1f} x {bb.zlen * scale:.1f} mm")
