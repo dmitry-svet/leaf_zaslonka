@@ -21,8 +21,6 @@ Build with previews and checks (bed is 256 x 256):
 Plain build, no previews: `.venv/bin/python zaslonka.py`.
 
 - The wrapper also renders `print_*_preview.png`; delete them, they are not kept.
-- The wrapper reports "Does not fit the bed" for the plate and the frame: it
-  wants a 5 mm margin per side, the print is 247.6 mm on a 256 mm bed. Expected.
 - A plain build rewrites the `.step` files (timestamp only). Do not commit that
   when nothing else changed.
 
@@ -45,6 +43,8 @@ All of them are committed.
 - The plate outline is `outline_wire`; ribs, rails and the frame ear fill are
   clipped to it. Change the outline there, not per feature.
 - Tube wall grows inward: the outer tube size must not change.
+- Rails sit flush with the plate edge: `win_overlap + fit_clearance + rail_w`
+  must equal `edge_margin`. Change them together.
 - `check_mating` must pass: the rails hold the shutter in Y and Z with
   `fit_clearance` per side.
 - After a change: build, look at the preview, check every STL is watertight.

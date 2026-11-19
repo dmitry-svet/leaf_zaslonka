@@ -11,10 +11,10 @@ import cadquery as cq
 # PARAMETERS - Edit these to customize the model
 # ============================================================
 # Plate outline (X = length, Y = width), derived from the openings + margins.
-edge_margin = 20.0      # mm - openings to the long edges
-end_margin = 20.0       # mm - openings to the short (left/right) edges
+edge_margin = 10.0      # mm - openings to the long edges
+end_margin = 10.0       # mm - openings to the short (left/right) edges
 plate_t = 3.0           # mm - plate thickness (2 or 3)
-corner_r_near = 10.0    # mm - corners at the oval end
+corner_r_near = 7.0     # mm - corners at the oval end (concentric with the corner holes)
 corner_r_far = 10.0     # mm - corners at the far end and on the taper
 
 # Oval (stadium) where the tube meets the plate, outer size of the tube
@@ -28,8 +28,6 @@ rise_len = 0.0          # mm - straight oval part above the plate
 bend_angle = 45.0       # deg - tilt toward +X (far end of the plate)
 bend_r = 40.0           # mm - centreline bend radius (min ~36: half oval length)
 outlet_len = 20.0       # mm - straight round part for the hose
-bead_d = 60.5           # mm - bead at the very end of the outlet, keeps the hose clamp from sliding off
-bead_w = 2.0            # mm - bead length along the tube
 
 # Perimeter ribs
 rib_in_w, rib_in_h = 3.0, 2.0     # mm - tube side
@@ -39,7 +37,7 @@ stiff_gap = 14.0        # mm - gap between the two cross ribs (tube side, betwee
 
 # Mounting holes
 hole_d = 6.0            # mm
-corner_hole_inset = 10.0    # mm - two holes in the plate corners at the oval end, from both edges
+corner_hole_inset = 7.0     # mm - two holes in the plate corners at the oval end, from both edges
 ear_r = 7.0             # mm - ear half-size: square ears beside the shutter, flush with the far end
 ear_out = 6.0           # mm - ear hole centre outside the long edge
 ear_extra = 6.0         # mm - extra ear length towards the plate centre (makes the ears rectangular)
@@ -53,10 +51,10 @@ win_gap = 44.0          # mm - oval end to window
 win_len = 90.0          # mm - window along X
 win_w = 58.5            # mm - window along Y (one long side in line with the oval)
 win_r = 10.0            # mm - window corner radius
-win_overlap = 10.0      # mm - shutter overlap around the window
+win_overlap = 5.0       # mm - shutter overlap around the window
 shutter_t = 3.0         # mm - shutter thickness
 shutter_r = 10.0        # mm - shutter corner radius (plan view)
-rail_w = 9.0            # mm - rail width at the plate
+rail_w = 4.7            # mm - rail width at the plate (win_overlap + fit_clearance + rail_w = edge_margin)
 fit_clearance = 0.3     # mm - shutter to rails, per side
 grip_w, grip_h = 3.0, 4.0   # mm - pull ridge on the shutter
 loop_t = 3.0            # mm - loop (eye) thickness; stands along the travel, at the edge opposite the pull ridge
@@ -196,13 +194,6 @@ def tube(shrink, extend):
 
 
 plate = outline().extrude(plate_t).translate((0, 0, z_plate))
-_ang = math.radians(bend_angle)
-_dir = cq.Vector(math.sin(_ang), 0, math.cos(_ang))
-_end = cq.Vector(oval_cx + bend_r * (1 - math.cos(_ang)), oval_cy,
-                 z_top + rise_len + bend_r * math.sin(_ang)) + _dir * outlet_len
-# bead overshoots the outlet end, then everything is trimmed flush at the end plane
-bead = cq.Workplane(obj=cq.Solid.makeCylinder(bead_d / 2, bead_w + 0.5, _end - _dir * bead_w, _dir))
-end_trim = cq.Workplane(obj=cq.Solid.makeCylinder(bead_d, 5, _end, _dir))
 # Shutter zone: 45 degree dovetail rails (print without supports), open at the
 # far end so the shutter slides out there. No tube-side rib in this zone.
 win_x0 = end_margin + oval_len + win_gap
@@ -250,6 +241,9 @@ rings = (
     .union(cq.Workplane("XY").pushPoints(ring_pts).circle(head_d / 2 + rib_in_w).circle(head_d / 2).extrude(rib_in_h)
            .intersect(outline().extrude(rib_in_h)).translate((0, 0, z_top)))
 )
+# Free space for the screw heads: near the corners the perimeter rib runs through it
+head_clear = (cq.Workplane("XY").pushPoints(ring_pts).circle(head_d / 2).extrude(rib_in_h + rail_h)
+              .translate((0, 0, z_top)))
 
 half = shutter_w / 2
 shutter = (
@@ -278,27 +272,36 @@ result = (
     plate
     .union(rib(rib_in_w, rib_in_h, z_top).cut(open_end))
     .union(rib(rib_out_w, rib_out_h, 0))
-    .union(tube(0, 0)).union(bead)
+    .union(tube(0, 0))
     .union(rail(1)).union(rail(-1)).union(stop).union(stiff).union(rings)
     .cut(window)
     .cut(holes)
     .cut(tube(tube_wall, 1.0))
-    .cut(end_trim)
+    .cut(head_clear)
 )
 
-# Clamp bar: flat strip, edge ribs along the long sides on both faces.
-# Bottom face (towards the plate): ring around the hole. Top face: boss with a hex nut pocket.
+# Clamp bar: flat strip with edge ribs along the long sides on both faces.
+# Bottom face (towards the plate): ring around the hole. Top face: boss with a
+# hex nut pocket; the ribs rise from rib_in_h at the ends to the boss top.
 clamp_w = stiff_gap + 2 * rib_in_w
-clamp_h = rib_in_h + clamp_t + nut_h
+clamp_z = rib_in_h + clamp_t            # top face of the strip
+clamp_h = clamp_z + nut_h
 clamp_box = cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_h)
+clamp_ribs = (
+    cq.Workplane("YZ").polyline([(-mid_w / 2, 0), (-mid_w / 2, rib_in_h), (0, nut_h),
+                                 (mid_w / 2, rib_in_h), (mid_w / 2, 0)]).close()
+    .extrude(clamp_w).translate((-clamp_w / 2, 0, 0))
+    .cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(nut_h))
+    .translate((0, 0, clamp_z))
+)
 clamp = (
-    cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_t + 2 * rib_in_h)
+    cq.Workplane("XY").rect(clamp_w, mid_w).extrude(clamp_z)
     .cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(rib_in_h))
-    .cut(cq.Workplane("XY").rect(stiff_gap, mid_w + 2).extrude(rib_in_h).translate((0, 0, rib_in_h + clamp_t)))
+    .union(clamp_ribs)
     .union(cq.Workplane("XY").circle(head_d / 2 + rib_in_w).circle(head_d / 2).extrude(rib_in_h).intersect(clamp_box))
-    .union(cq.Workplane("XY").circle(clamp_w / 2).extrude(nut_h).translate((0, 0, rib_in_h + clamp_t)))
+    .union(cq.Workplane("XY").circle(clamp_w / 2).extrude(nut_h).translate((0, 0, clamp_z)))
     .cut(cq.Workplane("XY").polygon(6, (nut_af + 2 * fit_clearance) / math.cos(math.pi / 6))
-         .extrude(nut_h).translate((0, 0, rib_in_h + clamp_t)))
+         .extrude(nut_h).translate((0, 0, clamp_z)))
     .cut(cq.Workplane("XY").circle(hole_d / 2).extrude(clamp_h))
 )
 
